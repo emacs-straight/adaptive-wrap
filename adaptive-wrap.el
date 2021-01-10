@@ -60,11 +60,12 @@ extra indent = 2
 (make-variable-buffer-local 'adaptive-wrap-extra-indent)
 
 (defun adaptive-wrap--face-extends (face)
-  (if (fboundp 'face-extend-p)
-      (face-extend-p face nil t)
-    ;; Before Emacs 27, faces always extended beyond EOL.  Check for a
-    ;; non-default background.
-    (face-background face nil t)))
+  (let ((f (if (atom face) face (first face))))
+    (if (fboundp 'face-extend-p)
+        (face-extend-p f nil t)
+      ;; Before Emacs 27, faces always extended beyond EOL.  Check for a
+      ;; non-default background.
+      (face-background f nil t))))
 
 (defun adaptive-wrap--prefix-face (fcp beg end)
   (cond ((get-text-property 0 'face fcp))
