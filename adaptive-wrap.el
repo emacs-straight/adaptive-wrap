@@ -1,10 +1,10 @@
 ;;; adaptive-wrap.el --- Smart line-wrapping with wrap-prefix
 
-;; Copyright (C) 2011-2018  Free Software Foundation, Inc.
+;; Copyright (C) 2011-2021  Free Software Foundation, Inc.
 
 ;; Author: Stephen Berman <stephen.berman@gmx.net>
 ;;         Stefan Monnier <monnier@iro.umontreal.ca>
-;; Version: 0.7
+;; Version: 0.8
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -27,8 +27,6 @@
 ;; adaptive-fill-mode, but without actually changing the buffer's text.
 
 ;;; Code:
-
-(require 'easymenu)
 
 (defcustom adaptive-wrap-extra-indent 0
   "Number of extra spaces to indent in `adaptive-wrap-prefix-mode'.
@@ -57,18 +55,22 @@ extra indent = 2
   :type 'integer
   :safe 'integerp
   :group 'visual-line)
-(make-variable-buffer-local 'adaptive-wrap-extra-indent)
 
-(defun adaptive-wrap--face-extends (face)
-  (if (fboundp 'face-extend-p)
-      (face-extend-p face nil t)
-    ;; Before Emacs 27, faces always extended beyond EOL.  Check for a
-    ;; non-default background.
-    (face-background face nil t)))
+(defun adaptive-wrap--face-extend-p (face)
+  ;; Before Emacs 27, faces always extended beyond EOL, so we check for a
+  ;; non-default background instead.
+  (cond
+   ((listp face)
+    (plist-get face (if (fboundp 'face-extend-p) :extend :background)))
+   ((symbolp face)
+    (if (fboundp 'face-extend-p)
+        (face-extend-p face nil t)
+      (face-background face nil t)))))
 
-(defun adaptive-wrap--prefix-face (fcp beg end)
+(defun adaptive-wrap--prefix-face (fcp _beg end)
+  ;; If the fill-context-prefix already specifies a face, just use that.
   (cond ((get-text-property 0 'face fcp))
-        ;; If the last character is a newline and has a face that
+        ;; Else, if the last character is a newline and has a face that
         ;; extends beyond EOL, assume that this face spans the whole
         ;; line and apply it to the prefix to preserve the "block"
         ;; visual effect.
@@ -78,7 +80,14 @@ extra indent = 2
         ;; line has the diff-removed face.
         ((= (char-before end) ?\n)
          (let ((eol-face (get-text-property (1- end) 'face)))
-           (and eol-face (adaptive-wrap--face-extends eol-face) eol-face)))))
+           ;; `eol-face' can be a face, a "face value"
+           ;; (plist of face properties) or a list of one of those.
+           (if (or (not (consp eol-face)) (keywordp (car eol-face)))
+               ;; A single face.
+               (if (adaptive-wrap--face-extend-p eol-face) eol-face)
+             ;; A list of faces.  Keep the ones that extend beyond EOL.
+             (delq nil (mapcar (lambda (f) (if (adaptive-wrap--face-extend-p f) f))
+                               eol-face)))))))
 
 (defun adaptive-wrap--prefix (fcp)
   (let ((fcp-len (string-width fcp)))
