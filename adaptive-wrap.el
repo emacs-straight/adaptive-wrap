@@ -4,6 +4,7 @@
 
 ;; Author: Stephen Berman <stephen.berman@gmx.net>
 ;;         Stefan Monnier <monnier@iro.umontreal.ca>
+;; Package-Requires: ((emacs "24.1"))
 ;; Version: 0.8
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -17,7 +18,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -104,7 +105,8 @@ extra indent = 2
       ""))))
 
 (defun adaptive-wrap-fill-context-prefix (beg end)
-  "Like `fill-context-prefix', but with length adjusted by `adaptive-wrap-extra-indent'."
+  "Like `fill-context-prefix', but with length adjusted.
+How much to adjust it is decided by `adaptive-wrap-extra-indent'."
   (let* ((fcp
           ;; `fill-context-prefix' ignores prefixes that look like paragraph
           ;; starts, in order to avoid inadvertently creating a new paragraph
