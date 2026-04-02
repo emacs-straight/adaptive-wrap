@@ -63,6 +63,12 @@ extra indent = 2
   :safe 'integerp
   :group 'visual-line)
 
+(defcustom adaptive-wrap-prefix-color nil
+  "Background color for the wrap prefix indentation.  If nil, no highlighting is applied."
+  :type '(choice (const nil) (color))
+  :group 'visual-line)
+
+
 (defun adaptive-wrap--face-extend-p (face)
   ;; Before Emacs 27, faces always extended beyond EOL, so we check for a
   ;; non-default background instead.
@@ -112,6 +118,32 @@ extra indent = 2
 
 (defun adaptive-wrap-fill-context-prefix (beg end)
   "Like `fill-context-prefix', but with length adjusted.
+  How much to adjust it is decided by `adaptive-wrap-extra-indent'.
+  The highlight color can also be changed with 'adaptive-wrap-prefix-color'."
+  (let* ((fcp
+          ;; `fill-context-prefix' ignores prefixes that look like paragraph
+          ;; starts, in order to avoid inadvertently creating a new paragraph
+          ;; while filling, but here we're only dealing with single-line
+          ;; "paragraphs" and we don't actually modify the buffer, so this
+          ;; restriction doesn't make much sense (and is positively harmful in
+          ;; taskpaper-mode where paragraph-start matches everything).
+          (or (let ((paragraph-start "\\`\\'a"))
+                (fill-context-prefix beg end))
+              ;; Note: fill-context-prefix may return nil; See:
+              ;; http://article.gmane.org/gmane.emacs.devel/156285
+              ""))
+         (prefix (adaptive-wrap--prefix fcp))
+         (face (adaptive-wrap--prefix-face fcp beg end)))
+    (when adaptive-wrap-prefix-color
+      ;; Handle adding the highlight color
+      (setq prefix (propertize prefix 'face 
+                               (list :background adaptive-wrap-prefix-color))))
+    (if face
+        (propertize prefix 'face face)
+      prefix)))
+
+(defun old-adaptive-wrap-fill-context-prefix (beg end)
+  "Like `fill-context-prefix', but with length adjusted.
 How much to adjust it is decided by `adaptive-wrap-extra-indent'."
   (let* ((fcp
           ;; `fill-context-prefix' ignores prefixes that look like paragraph
@@ -121,9 +153,9 @@ How much to adjust it is decided by `adaptive-wrap-extra-indent'."
           ;; restriction doesn't make much sense (and is positively harmful in
           ;; taskpaper-mode where paragraph-start matches everything).
           (or (let ((paragraph-start "\\`\\'a"))
-                    (fill-context-prefix beg end))
-                  ;; Note: fill-context-prefix may return nil; See:
-                  ;; http://article.gmane.org/gmane.emacs.devel/156285
+                (fill-context-prefix beg end))
+              ;; Note: fill-context-prefix may return nil; See:
+              ;; http://article.gmane.org/gmane.emacs.devel/156285
               ""))
          (prefix (adaptive-wrap--prefix fcp))
          (face (adaptive-wrap--prefix-face fcp beg end)))
@@ -148,14 +180,14 @@ How much to adjust it is decided by `adaptive-wrap-extra-indent'."
        (point) (progn (search-forward "\n" end 'move) (point))
        'wrap-prefix
        (let ((pfx (adaptive-wrap-fill-context-prefix
-		   lbp (point))))
-	 ;; Remove any `wrap-prefix' property that
-	 ;; might have been added earlier.
-	 ;; Otherwise, we end up with a string
-	 ;; containing a `wrap-prefix' string
-	 ;; containing a `wrap-prefix' string ...
-	 (remove-text-properties
-	  0 (length pfx) '(wrap-prefix) pfx)
+                   lbp (point))))
+         ;; Remove any `wrap-prefix' property that
+         ;; might have been added earlier.
+         ;; Otherwise, we end up with a string
+         ;; containing a `wrap-prefix' string
+         ;; containing a `wrap-prefix' string ...
+         (remove-text-properties
+          0 (length pfx) '(wrap-prefix) pfx)
          (let ((dp (get-text-property 0 'display pfx)))
            (when (and dp (eq dp (get-text-property (1- lbp) 'display)))
              ;; There's a `display' property which covers not just the
@@ -163,8 +195,8 @@ How much to adjust it is decided by `adaptive-wrap-extra-indent'."
              ;; the prefix more pretty and could interfere or even defeat our
              ;; efforts (e.g. it comes from `visual-fill-mode').
              (remove-text-properties
-	      0 (length pfx) '(display) pfx)))
-	 pfx))))
+              0 (length pfx) '(display) pfx)))
+         pfx))))
   `(jit-lock-bounds ,beg . ,end))
 
 ;;;###autoload
@@ -191,9 +223,9 @@ How much to adjust it is decided by `adaptive-wrap-extra-indent'."
 (define-key-after (lookup-key menu-bar-options-menu [line-wrapping])
   [adaptive-wrap]
   '(menu-item "Adaptive Wrap" adaptive-wrap-prefix-mode
-	      :visible (menu-bar-menu-frame-live-and-visible-p)
-	      :help "Show wrapped long lines with an adjustable prefix"
-	      :button (:toggle . (bound-and-true-p adaptive-wrap-prefix-mode)))
+              :visible (menu-bar-menu-frame-live-and-visible-p)
+              :help "Show wrapped long lines with an adjustable prefix"
+              :button (:toggle . (bound-and-true-p adaptive-wrap-prefix-mode)))
   word-wrap)
 
 (provide 'adaptive-wrap)
